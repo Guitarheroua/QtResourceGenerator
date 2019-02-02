@@ -3,6 +3,10 @@
 #include <QDebug>
 #include <QDirIterator>
 
+#include <set>
+
+static std::set<QString> UNIQUE_ALIASES_SET;
+
 int main(int argc, char *argv[])
 {
     QCoreApplication app(argc, argv);
@@ -58,8 +62,14 @@ int main(int argc, char *argv[])
             QFileInfo sourceFileInfo(sourceDirIterator->next());
             if (sourceFileInfo.isFile())
             {
-                qDebug() << sourceFileInfo.filePath();
-                qrc.write(QStringLiteral("<file alias=\"%1\">%2</file>").arg(sourceFileInfo.fileName(), sourceFileInfo.filePath()).toUtf8());
+                auto fileName = sourceFileInfo.fileName();
+                if (UNIQUE_ALIASES_SET.find(fileName) != std::end(UNIQUE_ALIASES_SET))
+                    fileName.prepend(QStringLiteral("unique-"));
+
+                UNIQUE_ALIASES_SET.emplace(fileName);
+
+                qDebug() << fileName;
+                qrc.write(QStringLiteral("<file alias=\"%1\">%2</file>").arg(fileName, sourceFileInfo.filePath()).toUtf8());
             }
         }
 
