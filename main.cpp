@@ -5,8 +5,6 @@
 
 #include <set>
 
-static std::set<QString> UNIQUE_ALIASES_SET;
-
 int main(int argc, char *argv[])
 {
     QCoreApplication app(argc, argv);
@@ -58,18 +56,20 @@ int main(int argc, char *argv[])
         else
             sourceDirIterator = std::make_unique<QDirIterator>(sourceDir, fileExt, QDir::Files, QDirIterator::Subdirectories);
 
-        while (sourceDirIterator->hasNext()) {
-            QFileInfo sourceFileInfo(sourceDirIterator->next());
-            if (sourceFileInfo.isFile())
-            {
-                auto fileName = sourceFileInfo.fileName();
-                if (UNIQUE_ALIASES_SET.find(fileName) != std::end(UNIQUE_ALIASES_SET))
-                    fileName.prepend(QStringLiteral("unique-"));
+        {
+            std::set<QString> UNIQUE_ALIASES_SET;
 
-                UNIQUE_ALIASES_SET.emplace(fileName);
+            while (sourceDirIterator->hasNext()) {
+                QFileInfo sourceFileInfo(sourceDirIterator->next());
+                if (sourceFileInfo.isFile())
+                {
+                    auto fileName = sourceFileInfo.fileName();
+                    if (UNIQUE_ALIASES_SET.find(fileName) != std::end(UNIQUE_ALIASES_SET))
+                        fileName.prepend(QStringLiteral("unique-"));
 
-                qDebug() << fileName;
-                qrc.write(QStringLiteral("<file alias=\"%1\">%2</file>").arg(fileName, sourceFileInfo.filePath()).toUtf8());
+                    UNIQUE_ALIASES_SET.emplace(fileName);
+                    qrc.write(QStringLiteral("<file alias=\"%1\">%2</file>").arg(fileName, sourceFileInfo.filePath()).toUtf8());
+                }
             }
         }
 
@@ -79,5 +79,6 @@ int main(int argc, char *argv[])
         qDebug() << QStringLiteral("Resource file was successfuly created by path: %1").arg(qrcFilePath);
         return 0;
     }
-    return QCoreApplication::exec();
+
+    return -1;
 }
