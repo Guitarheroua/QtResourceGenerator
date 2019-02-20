@@ -2,8 +2,35 @@
 #include <QCommandLineParser>
 #include <QDebug>
 #include <QDirIterator>
+#include <QDomDocument>
 
 #include <set>
+
+
+
+QByteArray modifyGameIconSvgColors(const QByteArray &data)
+{
+    static QDomDocument s_domDocument;
+
+    QString error;
+    if (!s_domDocument.setContent(data, &error))
+        return data;
+
+    auto elements = s_domDocument.elementsByTagName(QStringLiteral("path"));
+    for(auto i = 0; i < elements.size(); ++i)
+    {
+        auto element = elements.at(i).toElement();
+        if(element.isNull())
+            continue;
+
+        if(auto fillAttr = element.attributeNode(QStringLiteral("fill")); fillAttr.isNull())
+            element.setAttribute(QStringLiteral("fill"), QStringLiteral("none"));
+        else
+            fillAttr.setValue(QStringLiteral("%1"));
+    }
+
+    return s_domDocument.toByteArray();
+}
 
 int main(int argc, char *argv[])
 {
@@ -21,8 +48,9 @@ int main(int argc, char *argv[])
 
     QCommandLineOption fileExtOption(QStringLiteral("file-extensions"), QStringLiteral("Files with defined extensions should be added to qrc file."), QStringLiteral("*.*"));
     QCommandLineOption prefixOption(QStringLiteral("prefix"), QStringLiteral("Prefix for files in qrc."), QStringLiteral("/"));
+    QCommandLineOption pmbgSvgOption(QStringLiteral("pmbgSvg"), QStringLiteral("Specific parameter only for ProtomorphBG."));
 
-    if (!parser.addOptions(QList<QCommandLineOption>() << fileExtOption << prefixOption))
+    if (!parser.addOptions(QList<QCommandLineOption>() << fileExtOption << prefixOption << pmbgSvgOption))
         parser.errorText();
 
 
@@ -39,7 +67,7 @@ int main(int argc, char *argv[])
     QStringList fileExt;
     if (parser.isSet(prefixOption))
         prefix = parser.value(prefixOption);
-    if (parser.isSet(prefixOption))
+    if (parser.isSet(fileExtOption))
         fileExt = parser.values(fileExtOption);
 
     QFile qrc(qrcFilePath);
@@ -57,17 +85,31 @@ int main(int argc, char *argv[])
             sourceDirIterator = std::make_unique<QDirIterator>(sourceDir, fileExt, QDir::Files, QDirIterator::Subdirectories);
 
         {
-            std::set<QString> UNIQUE_ALIASES_SET;
+            auto UNIQUE_ALIASES_SET = std::set<QString>{};
+
+            auto file = QFile{};
+            auto sourceFileInfo = QFileInfo{};
 
             while (sourceDirIterator->hasNext()) {
-                QFileInfo sourceFileInfo(sourceDirIterator->next());
+                file.setFileName(sourceDirIterator->next());
+                sourceFileInfo.setFile(file);
                 if (sourceFileInfo.isFile())
                 {
                     auto fileName = sourceFileInfo.fileName();
+
+                    if (parser.isSet(pmbgSvgOption) && file.open(QFile::ReadWrite))
+                    {
+                        auto svgData = modifyGameIconSvgColors(file.readAll());
+                        file.resize(0);
+                        file.write(svgData);
+                        file.close();
+                    }
+
                     if (UNIQUE_ALIASES_SET.find(fileName) != std::end(UNIQUE_ALIASES_SET))
                         fileName.prepend(QStringLiteral("unique-"));
 
                     UNIQUE_ALIASES_SET.emplace(fileName);
+                    qDebug() << fileName;
                     qrc.write(QStringLiteral("<file alias=\"%1\">%2</file>").arg(fileName, sourceFileInfo.filePath()).toUtf8());
                 }
             }
