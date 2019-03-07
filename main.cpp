@@ -6,8 +6,6 @@
 
 #include <set>
 
-
-
 QByteArray modifyGameIconSvgColors(const QByteArray &data)
 {
     static QDomDocument s_domDocument;
@@ -25,6 +23,8 @@ QByteArray modifyGameIconSvgColors(const QByteArray &data)
 
         if(auto fillAttr = element.attributeNode(QStringLiteral("fill")); fillAttr.isNull())
             element.setAttribute(QStringLiteral("fill"), QStringLiteral("none"));
+        else if(fillAttr.value() == QStringLiteral("none") || fillAttr.value() == QStringLiteral("%1"))
+            break;
         else
             fillAttr.setValue(QStringLiteral("%1"));
     }
